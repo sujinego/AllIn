@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, PenSquare, User, LogOut, Bookmark } from "lucide-react";
+import { Menu, X, PenSquare, User, LogOut, Bookmark, UserCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User as UserType } from "@/types";
 
@@ -145,6 +145,14 @@ export default function Header() {
                         {user.nickname}
                       </p>
                     </div>
+                    <Link
+                      href="/me"
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
+                      style={{ color: "var(--color-text-secondary)" }}
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <UserCircle size={15} /> 내 정보
+                    </Link>
                     <Link
                       href="/me/bookmarks"
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50"
