@@ -173,6 +173,16 @@ export interface TimelineEntry {
   updated_at: string
 }
 
+export interface TimelineTask {
+  id: string
+  timeline_id: string
+  phase_id: string
+  title: string
+  start_date: string
+  end_date: string
+  memo?: string | null
+}
+
 export interface Report {
   id: string
   reporter_id: string

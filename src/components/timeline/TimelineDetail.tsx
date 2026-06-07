@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, PenSquare, CalendarDays, MapPin, Home, LayoutList } from 'lucide-react'
-import { TIMELINE_STAGES, MILESTONE_STAGES, type Timeline, type TimelineEntry } from '@/types'
+import { TIMELINE_STAGES, MILESTONE_STAGES, type Timeline, type TimelineEntry, type TimelineTask } from '@/types'
 
 // ─── Stage badge ─────────────────────────────────────────────────────────────
 function StageBadge({ stage }: { stage: string }) {
@@ -69,10 +69,68 @@ function EntryCard({ entry }: { entry: TimelineEntry }) {
   )
 }
 
+// ─── Schedule (공사 일정표) card ──────────────────────────────────────────────
+function phaseInfo(phaseId: string) {
+  const found = TIMELINE_STAGES.find(s => s.key === phaseId)
+  return {
+    label: found?.label ?? phaseId,
+    emoji: found?.emoji ?? '🔨',
+    color: found?.color ?? '#8B6B4A',
+  }
+}
+
+function TaskScheduleCard({ task }: { task: TimelineTask }) {
+  const phase = phaseInfo(task.phase_id)
+  return (
+    <div className="bg-white rounded-2xl border overflow-hidden p-4 flex items-start gap-3"
+      style={{ borderColor: 'var(--color-border)' }}>
+      <span className="flex items-center justify-center w-9 h-9 rounded-xl text-base flex-shrink-0"
+        style={{ background: `${phase.color}33` }}>
+        {phase.emoji}
+      </span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
+            style={{ background: phase.color }}>
+            {phase.label}
+          </span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {task.start_date.replace(/-/g, '.')} ~ {task.end_date.replace(/-/g, '.')}
+          </span>
+        </div>
+        <h4 className="font-semibold mb-1 truncate" style={{ color: 'var(--color-text-primary)' }}>
+          {task.title}
+        </h4>
+        {task.memo && (
+          <p className="text-sm leading-relaxed whitespace-pre-wrap"
+            style={{ color: 'var(--color-text-secondary)' }}>
+            {task.memo}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Calendar ─────────────────────────────────────────────────────────────────
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-function Calendar({ entries }: { entries: TimelineEntry[] }) {
+function datesInRange(start: string, end: string): string[] {
+  const dates: string[] = []
+  const cur = new Date(`${start}T00:00:00`)
+  const last = new Date(`${end}T00:00:00`)
+  if (isNaN(cur.getTime()) || isNaN(last.getTime())) return dates
+  while (cur <= last) {
+    const y = cur.getFullYear()
+    const m = String(cur.getMonth() + 1).padStart(2, '0')
+    const d = String(cur.getDate()).padStart(2, '0')
+    dates.push(`${y}-${m}-${d}`)
+    cur.setDate(cur.getDate() + 1)
+  }
+  return dates
+}
+
+function Calendar({ entries, tasks }: { entries: TimelineEntry[]; tasks: TimelineTask[] }) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -83,6 +141,14 @@ function Calendar({ entries }: { entries: TimelineEntry[] }) {
     acc[e.entry_date].push(e)
     return acc
   }, {} as Record<string, TimelineEntry[]>)
+
+  const taskMap = tasks.reduce((acc, t) => {
+    for (const ds of datesInRange(t.start_date, t.end_date)) {
+      if (!acc[ds]) acc[ds] = []
+      acc[ds].push(t)
+    }
+    return acc
+  }, {} as Record<string, TimelineTask[]>)
 
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -102,6 +168,7 @@ function Calendar({ entries }: { entries: TimelineEntry[] }) {
   const dateStr = (d: number) => `${year}-${pad(month + 1)}-${pad(d)}`
 
   const selectedEntries = selected ? (entryMap[selected] ?? []) : []
+  const selectedTasks = selected ? (taskMap[selected] ?? []) : []
 
   const cells: (number | null)[] = [
     ...Array(firstDay).fill(null),
@@ -142,7 +209,10 @@ function Calendar({ entries }: { entries: TimelineEntry[] }) {
         {cells.map((day, idx) => {
           if (!day) return <div key={idx} />
           const ds = dateStr(day)
-          const hasEntries = !!entryMap[ds]
+          const dayEntries = entryMap[ds] ?? []
+          const dayTasks = taskMap[ds] ?? []
+          const hasEntries = dayEntries.length > 0
+          const hasTasks = dayTasks.length > 0
           const isSelected = selected === ds
           const isToday = ds === `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`
           const col = idx % 7
@@ -163,9 +233,17 @@ function Calendar({ entries }: { entries: TimelineEntry[] }) {
                 }}>
                 {day}
               </span>
+              {hasTasks && (
+                <div className="flex gap-0.5 mt-1 w-full px-1.5">
+                  {(dayTasks.slice(0, 2)).map((t, i) => (
+                    <div key={i} className="h-1 flex-1 rounded-full"
+                      style={{ background: isSelected ? 'rgba(255,255,255,0.8)' : phaseInfo(t.phase_id).color }} />
+                  ))}
+                </div>
+              )}
               {hasEntries && (
                 <div className="flex gap-0.5 mt-1">
-                  {(entryMap[ds].slice(0, 3)).map((e, i) => {
+                  {(dayEntries.slice(0, 3)).map((e, i) => {
                     const stageColor = TIMELINE_STAGES.find(s => s.key === e.stage)?.color ?? '#8B6B4A'
                     return (
                       <div key={i} className="w-1.5 h-1.5 rounded-full"
@@ -179,22 +257,42 @@ function Calendar({ entries }: { entries: TimelineEntry[] }) {
         })}
       </div>
 
-      {/* 선택 날짜 일지 */}
+      {/* 선택 날짜 상세 */}
       {selected && (
-        <div className="mt-6">
-          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-            {selected.replace(/-/g, '년 ').replace(/-/, '월 ')}일 일지
-          </p>
-          {selectedEntries.length === 0 ? (
-            <p className="text-sm text-center py-8 rounded-2xl border"
-              style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}>
-              이 날의 일지가 없습니다
+        <div className="mt-6 space-y-6">
+          {/* 공사 일정표 */}
+          <div>
+            <p className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+              {selected.replace(/-/g, '년 ').replace(/-/, '월 ')}일 예정된 공사
             </p>
-          ) : (
-            <div className="space-y-3">
-              {selectedEntries.map(e => <EntryCard key={e.id} entry={e} />)}
-            </div>
-          )}
+            {selectedTasks.length === 0 ? (
+              <p className="text-sm text-center py-6 rounded-2xl border"
+                style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}>
+                이 날 예정된 공사 일정이 없습니다
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {selectedTasks.map(t => <TaskScheduleCard key={t.id} task={t} />)}
+              </div>
+            )}
+          </div>
+
+          {/* 작성된 일지 */}
+          <div>
+            <p className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+              {selected.replace(/-/g, '년 ').replace(/-/, '월 ')}일 일지
+            </p>
+            {selectedEntries.length === 0 ? (
+              <p className="text-sm text-center py-8 rounded-2xl border"
+                style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}>
+                이 날의 일지가 없습니다
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {selectedEntries.map(e => <EntryCard key={e.id} entry={e} />)}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -240,6 +338,7 @@ function MilestoneProgress({ entries }: { entries: TimelineEntry[] }) {
 interface Props {
   timeline: Timeline
   entries: TimelineEntry[]
+  tasks: TimelineTask[]
   isOwner: boolean
 }
 
@@ -249,7 +348,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
   completed:   { label: '완료',    color: '#065F46', bg: '#D1FAE5' },
 }
 
-export default function TimelineDetail({ timeline, entries, isOwner }: Props) {
+export default function TimelineDetail({ timeline, entries, tasks, isOwner }: Props) {
   const [tab, setTab] = useState<'list' | 'calendar'>('list')
 
   const status = STATUS_LABEL[timeline.status] ?? STATUS_LABEL.in_progress
@@ -405,7 +504,7 @@ export default function TimelineDetail({ timeline, entries, isOwner }: Props) {
       ) : (
         <div className="bg-white rounded-2xl border p-5"
           style={{ borderColor: 'var(--color-border)' }}>
-          <Calendar entries={entries} />
+          <Calendar entries={entries} tasks={tasks} />
         </div>
       )}
     </div>
