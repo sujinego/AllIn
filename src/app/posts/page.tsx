@@ -14,7 +14,7 @@ async function getPosts(filters: PostFilters): Promise<{ posts: Post[]; total: n
     const supabase = await createClient()
     let query = supabase
       .from('posts')
-      .select('*, users(id, nickname), post_images(id, url, is_cover, sort_order)', { count: 'exact' })
+      .select('*, users!posts_user_id_fkey(id, nickname), post_images(id, url, is_cover, sort_order)', { count: 'exact' })
       .eq('status', 'active')
 
     if (filters.category) query = query.eq('category', filters.category)

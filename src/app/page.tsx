@@ -9,7 +9,7 @@ async function getRecentPosts(): Promise<Post[]> {
     const supabase = await createClient()
     const { data } = await supabase
       .from('posts')
-      .select('*, users(id, nickname), post_images(id, url, is_cover, sort_order)')
+      .select('*, users!posts_user_id_fkey(id, nickname), post_images(id, url, is_cover, sort_order)')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(8)

@@ -6,7 +6,7 @@ import CostChart from '@/components/posts/CostChart'
 import CommentSection from '@/components/comments/CommentSection'
 import PostActions from './PostActions'
 import { formatCost, formatDate, sqmToPyeong } from '@/lib/utils'
-import { MapPin, Maximize2, Calendar, Clock, Building2, AlertTriangle } from 'lucide-react'
+import { MapPin, Maximize2, Calendar, Clock, Building2, AlertTriangle, Pencil } from 'lucide-react'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -18,7 +18,7 @@ export default async function PostDetailPage({ params }: Props) {
 
   const { data: post } = await supabase
     .from('posts')
-    .select('*, users(id, nickname, avatar_url), cost_items(*), post_images(*)')
+    .select('*, users!posts_user_id_fkey(id, nickname, avatar_url), cost_items(*), post_images(*)')
     .eq('id', id)
     .eq('status', 'active')
     .single()
@@ -65,11 +65,20 @@ export default async function PostDetailPage({ params }: Props) {
       </h1>
 
       {/* 메타 정보 */}
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm"
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
         style={{ color: 'var(--color-text-secondary)' }}>
         <span className="font-medium">{post.users?.nickname ?? '익명'}</span>
         <span>{formatDate(post.created_at)}</span>
         <span>조회 {post.view_count.toLocaleString()}</span>
+        {session?.user.id === post.user_id && (
+          <Link
+            href={`/posts/${post.id}/edit`}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-sm font-medium transition-colors hover:bg-gray-50"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+          >
+            <Pencil size={13} /> 수정
+          </Link>
+        )}
       </div>
 
       {/* 핵심 정보 카드 */}
