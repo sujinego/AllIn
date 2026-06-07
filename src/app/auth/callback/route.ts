@@ -40,14 +40,17 @@ export async function GET(request: NextRequest) {
           .maybeSingle()
 
         if (!existing) {
+          // 카카오 등 이메일 동의항목(사업자등록증 필요) 없이 가입하면 user.email이 없을 수 있음
+          const email = user.email ?? `kakao_${user.id}@kakao.local`
           const nickname =
             user.user_metadata?.nickname ??
             user.user_metadata?.full_name ??
-            user.email!.split('@')[0]
+            user.user_metadata?.name ??
+            (user.email ? user.email.split('@')[0] : `사용자${user.id.slice(0, 8)}`)
 
           await supabase.from('users').insert({
             id: user.id,
-            email: user.email!,
+            email,
             nickname,
           })
         }

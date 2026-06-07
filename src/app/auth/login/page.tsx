@@ -81,6 +81,8 @@ function LoginForm() {
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        // 카카오: 사업자등록증이 필요한 이메일 등 동의항목 없이 닉네임만 요청
+        ...(provider === 'kakao' ? { scopes: 'profile_nickname' } : {}),
       },
     })
     if (error) {

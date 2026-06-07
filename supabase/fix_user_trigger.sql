@@ -7,14 +7,18 @@
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- 카카오 등 이메일 동의항목(사업자등록증 필요) 없이 가입한 경우 NEW.email이 NULL일 수 있음
+  -- → 고유한 더미 이메일을 채워 NOT NULL/UNIQUE 제약을 만족시킴
   INSERT INTO public.users (id, email, nickname)
   VALUES (
     NEW.id,
-    NEW.email,
+    COALESCE(NEW.email, 'kakao_' || NEW.id::text || '@kakao.local'),
     COALESCE(
       NEW.raw_user_meta_data->>'nickname',
       NEW.raw_user_meta_data->>'full_name',
-      split_part(NEW.email, '@', 1)
+      NEW.raw_user_meta_data->>'name',
+      split_part(NEW.email, '@', 1),
+      '사용자' || substr(NEW.id::text, 1, 8)
     )
   )
   ON CONFLICT (id) DO NOTHING;
@@ -35,11 +39,13 @@ CREATE TRIGGER on_auth_user_created
 INSERT INTO public.users (id, email, nickname)
 SELECT
   au.id,
-  au.email,
+  COALESCE(au.email, 'kakao_' || au.id::text || '@kakao.local'),
   COALESCE(
     au.raw_user_meta_data->>'nickname',
     au.raw_user_meta_data->>'full_name',
-    split_part(au.email, '@', 1)
+    au.raw_user_meta_data->>'name',
+    split_part(au.email, '@', 1),
+    '사용자' || substr(au.id::text, 1, 8)
   )
 FROM auth.users au
 LEFT JOIN public.users pu ON pu.id = au.id
